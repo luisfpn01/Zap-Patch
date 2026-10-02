@@ -1,49 +1,59 @@
-name: Compile iOS Tweak
+name: Compile WatusiAdsPatch.dylib
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Allows manual triggering
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  build:
-    runs-on: macos-latest
+  compile:
+    runs-on: macos-latest  # Uses GitHub's macOS runners with Xcode
+    
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Theos
+    - uses: actions/checkout@v4
+      # This checks out your repository so the workflow can access WatusiAdsPatch.m
+    
+    - name: Verify source file exists
       run: |
-        git clone https://github.com/theos/theos.git
-        export THEOS=$(pwd)/theos
-        export PATH=$THEOS/bin:$PATH
-        echo "THEOS=$THEOS" >> $GITHUB_ENV
-        echo "PATH=$PATH" >> $GITHUB_ENV
-    - name: Verify Theos installation
+        echo "Checking for WatusiAdsPatch.m..."
+        ls -la WatusiAdsPatch.m
+        if [ ! -f "WatusiAdsPatch.m" ]; then
+          echo "❌ ERROR: WatusiAdsPatch.m not found in repository"
+          echo "Please make sure WatusiAdsPatch.m is committed to your repo"
+          exit 1
+        fi
+        echo "✅ Source file found"
+    
+    - name: Check Xcode availability
       run: |
-        echo "THEOS directory: $THEOS"
-        echo "Current PATH: $PATH"
-        echo "Contents of $THEOS/bin:"
-        ls -la $THEOS/bin/
+        echo "Xcode version: $(xcodebuild -version)"
+        echo "Command line tools path: $(xcode-select -p)"
+    
+    - name: Compile to .dylib
+      run: |
+        echo "🔨 Compiling WatusiAdsPatch.m to WatusiAdsPatch.dylib..."
+        echo "Using command: clang -fobjc-arc -dynamiclib -arch arm64 -mios-version-min=14.0 -framework Foundation -framework UIKit WatusiAdsPatch.m -o WatusiAdsPatch.dylib"
         
-        # Check if dm.pl exists in Theos bin
-        if [ -f "$THEOS/bin/dm.pl" ]; then
-          echo "Found dm.pl in Theos bin"
-          chmod +x "$THEOS/bin/dm.pl"  # Ensure it's executable
-          ls -la $THEOS/bin/dm.pl
-        else
-          echo "dm.pl NOT found in $THEOS/bin"
-          echo "Checking for similar tools:"
-          ls $THEOS/bin/*.pl || echo "No .pl files found in bin"
+        clang -fobjc-arc -dynamiclib -arch arm64 -mios-version-min=14.0 \
+          -framework Foundation -framework UIKit \
+          WatusiAdsPatch.m -o WatusiAdsPatch.dylib
+        
+        # Verify compilation succeeded
+        if [ ! -f "WatusiAdsPatch.dylib" ]; then
+          echo "❌ ERROR: Compilation failed - WatusiAdsPatch.dylib was not created"
+          exit 1
         fi
         
-        # Alternative: Try to find dm.pl anywhere in the repo
-        echo "Searching for dm.pl in repository:"
-        find . -name "dm.pl" -type f 2>/dev/null || echo "dm.pl not found in repository"
-    - name: Compile tweak
-      run: |
-        # If dm.pl is a custom script in your repo, use relative path
-        # If it's a Theos tool, use the full path
-        # Common approach: just run make - Theos tools should be in PATH
-        make package
-    - name: Upload artifact
+        echo "✅ Compilation successful!"
+        echo "📊 File info:"
+        ls -lh WatusiAdsPatch.dylib
+        file WatusiAdsPatch.dylib
+    
+    - name: Upload .dylib artifact
       uses: actions/upload-artifact@v4
       with:
-        name: watusi-tweak
-        path: .theos/_/WatusiAdsPatch.dylib
+        name: watusi-ads-patch-dylib
+        path: WatusiAdsPatch.dylib
+        retention-days: 30  # Keep artifacts for 30 days
