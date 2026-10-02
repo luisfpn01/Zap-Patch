@@ -1,7 +1,7 @@
 name: Compile WatusiAdsPatch.dylib
 
 on:
-  workflow_dispatch:  # Allows manual triggering
+  workflow_dispatch:
   push:
     branches: [ main ]
   pull_request:
@@ -9,12 +9,11 @@ on:
 
 jobs:
   compile:
-    runs-on: macos-latest  # Uses GitHub's macOS runners with Xcode
-    
+    runs-on: macos-latest
+
     steps:
     - uses: actions/checkout@v4
-      # This checks out your repository so the workflow can access WatusiAdsPatch.m
-    
+
     - name: Verify source file exists
       run: |
         echo "Checking for WatusiAdsPatch.m..."
@@ -25,35 +24,50 @@ jobs:
           exit 1
         fi
         echo "✅ Source file found"
-    
-    - name: Check Xcode availability
+
+    - name: Diagnose SDKs
       run: |
-        echo "Xcode version: $(xcodebuild -version)"
-        echo "Command line tools path: $(xcode-select -p)"
-    
-    - name: Compile to .dylib
+        echo "=== Available SDKs ==="
+        xcrun --show-sdk-path || echo "Failed to get default SDK path"
+        xcrun --sdk iphoneos --show-sdk-path || echo "iPhoneOS SDK not found"
+        xcrun --sdk iphoneos --show-sdk-version || echo "Failed to get iPhoneOS SDK version"
+        echo "=== Xcode version ==="
+        xcodebuild -version
+
+    - name: Compile to .dylib (iOS target)
       run: |
-        echo "🔨 Compiling WatusiAdsPatch.m to WatusiAdsPatch.dylib..."
-        echo "Using command: clang -fobjc-arc -dynamiclib -arch arm64 -mios-version-min=14.0 -framework Foundation -framework UIKit WatusiAdsPatch.m -o WatusiAdsPatch.dylib"
-        
-        clang -fobjc-arc -dynamiclib -arch arm64 -mios-version-min=14.0 \
+        echo "🔨 Compiling WatusiAdsPatch.m to WatusiAdsPatch.dylib for iOS..."
+
+        # Get iOS SDK path
+        IOS_SYSROOT=$(xcrun --sdk iphoneos --show-sdk-path)
+        echo "Using iOS SDK: $IOS_SYSROOT"
+
+        if [ -z "$IOS_SYSROOT" ] || [ ! -d "$IOS_SYSROOT" ]; then
+          echo "❌ ERROR: iOS SDK not found at $IOS_SYSROOT"
+          exit 1
+        fi
+
+        # Compile with explicit iOS SDK
+        clang -fobjc-arc -dynamiclib -arch arm64 \
+          -isysroot "$IOS_SYSROOT" \
+          -mios-version-min=14.0 \
           -framework Foundation -framework UIKit \
           WatusiAdsPatch.m -o WatusiAdsPatch.dylib
-        
+
         # Verify compilation succeeded
         if [ ! -f "WatusiAdsPatch.dylib" ]; then
           echo "❌ ERROR: Compilation failed - WatusiAdsPatch.dylib was not created"
           exit 1
         fi
-        
+
         echo "✅ Compilation successful!"
         echo "📊 File info:"
         ls -lh WatusiAdsPatch.dylib
         file WatusiAdsPatch.dylib
-    
+
     - name: Upload .dylib artifact
       uses: actions/upload-artifact@v4
       with:
         name: watusi-ads-patch-dylib
         path: WatusiAdsPatch.dylib
-        retention-days: 30  # Keep artifacts for 30 days
+        retention-days: 30
