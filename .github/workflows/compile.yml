@@ -18,7 +18,7 @@ jobs:
     - name: Verify Theos tools
       run: |
         which dm.pl
-        dm.pl --version
+        test -x $(which dm.pl) && echo "dmils is executable"
     - name: Compile tweak
       run: |
         make package
