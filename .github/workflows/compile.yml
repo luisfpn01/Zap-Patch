@@ -12,7 +12,13 @@ jobs:
       run: |
         git clone https://github.com/theos/theos.git
         export THEOS=$(pwd)/theos
+        export PATH=$THEOS/bin:$PATH
         echo "THEOS=$THEOS" >> $GITHUB_ENV
+        echo "PATH=$PATH" >> $GITHUB_ENV
+    - name: Verify Theos tools
+      run: |
+        which dm.pl
+        dm.pl --version
     - name: Compile tweak
       run: |
         make package
