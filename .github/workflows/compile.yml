@@ -17,7 +17,7 @@ jobs:
       run: |
         make package
     - name: Upload artifact
-      uses: actions/upload-artifact@v4  // <-- UPDATED FROM V3 TO V4
+      uses: actions/upload-artifact@v4
       with:
         name: watusi-tweak
         path: .theos/_/WatusiAdsPatch.dylib
