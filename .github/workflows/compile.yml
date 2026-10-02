@@ -1,0 +1,23 @@
+name: Compile iOS Tweak
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Theos
+      run: |
+        git clone https://github.com/theos/theos.git
+        export THEOS=$(pwd)/theos
+        echo "THEOS=$THEOS" >> $GITHUB_ENV
+    - name: Compile tweak
+      run: |
+        make package
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: watusi-tweak
+        path: .theos/_/WatusiAdsPatch.dylib
